@@ -1,0 +1,33 @@
+services:
+  qa-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: general-qa-agent
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      API_WORKERS: 1
+      DATA_DIR: /app/data
+      DATABASE_PATH: /app/data/qa_agent.db
+      UPLOAD_DIR: /app/data/uploads
+      REPORT_DIR: /app/data/reports
+      DASHBOARD_DIST: /app/dashboard/dist
+      DEEPEVAL_TELEMETRY_OPT_OUT: 1
+    ports:
+      - "127.0.0.1:${PORT:-8000}:8000"
+    # Bind the same project data used by local mode so local project state and
+    # run history survive container rebuilds. The public repository ships empty.
+    volumes:
+      - ./data:/app/data
+    cpus: ${QA_CPUS:-1.0}
+    mem_limit: ${QA_MEMORY:-1024m}
+    pids_limit: 256
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true

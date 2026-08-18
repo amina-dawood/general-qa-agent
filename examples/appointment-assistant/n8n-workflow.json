@@ -1,0 +1,84 @@
+{
+  "name": "Demo Appointment Assistant - QA Target",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "qa-demo-appointment",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "fc87ff9c-3149-4c5e-8a24-210488f823fa",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -420,
+        0
+      ],
+      "webhookId": "ab4e1a65-14c8-4c9e-8f89-4b566d3b678b"
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $json.body ?? $json;\n\nconst sessionId = String(\n  body.session_id ?? body.sessionId ?? body.conversation_id ?? body.sender_id ?? 'default-session'\n).trim();\nconst rawMessage = String(body.message ?? body.text ?? body.input ?? '').trim();\nconst message = rawMessage.toLowerCase();\n\nconst store = $getWorkflowStaticData('global');\nif (!store.sessions) store.sessions = {};\n\nfunction newSession() {\n  return {\n    stage: 'new',\n    name: null,\n    date: null,\n    time_preference: null,\n    confirmed: false\n  };\n}\n\nif (!store.sessions[sessionId]) {\n  store.sessions[sessionId] = newSession();\n}\nlet session = store.sessions[sessionId];\n\nconst serviceQuestion = /what services|which services|services do you offer|what do you offer|help with/.test(message);\nconst cancelIntent = /(^|\\\\b)(cancel|stop|never mind|nevermind)(\\\\b|$)/.test(message);\nconst restartIntent = /book again|new booking|another appointment|start over/.test(message);\n\nif (body.reset === true || message === '__reset__') {\n  store.sessions[sessionId] = newSession();\n  return [{ json: { reply: 'Session reset. How can I help you today?', session_id: sessionId, stage: 'new' } }];\n}\n\nif (cancelIntent) {\n  store.sessions[sessionId] = newSession();\n  return [{ json: { reply: 'Your booking has been cancelled.', session_id: sessionId, stage: 'new' } }];\n}\n\nif (restartIntent) {\n  store.sessions[sessionId] = { ...newSession(), stage: 'awaiting_name' };\n  return [{ json: { reply: \"Sure. What's your name?\", session_id: sessionId, stage: 'awaiting_name' } }];\n}\n\nif (serviceQuestion) {\n  let resume = '';\n  if (session.stage === 'awaiting_name') resume = \" What's your name?\";\n  if (session.stage === 'awaiting_date') resume = ' What date would you like your appointment?';\n  if (session.stage === 'awaiting_time') resume = ' Would you prefer Morning or Afternoon?';\n  return [{\n    json: {\n      reply: 'We offer Website Development, Automation Consulting, and AI Consulting.' + resume,\n      session_id: sessionId,\n      stage: session.stage\n    }\n  }];\n}\n\nif (session.stage === 'new') {\n  session.stage = 'awaiting_name';\n  return [{ json: { reply: \"Sure! What's your name?\", session_id: sessionId, stage: session.stage } }];\n}\n\nif (session.stage === 'awaiting_name') {\n  const cleaned = rawMessage\n    .replace(/^(my name is|i am|i'm|im|this is)\\\\s+/i, '')\n    .replace(/[.!?]+$/g, '')\n    .trim();\n  if (!cleaned || cleaned.length < 2 || cleaned.length > 60) {\n    return [{ json: { reply: \"I didn't catch your name. What's your name?\", session_id: sessionId, stage: session.stage } }];\n  }\n  session.name = cleaned;\n  session.stage = 'awaiting_date';\n  return [{ json: { reply: `Thanks, ${session.name}. What date would you like your appointment?`, session_id: sessionId, stage: session.stage } }];\n}\n\nif (session.stage === 'awaiting_date') {\n  const clearDate = /\\\\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\\\\b/i.test(rawMessage)\n    || /\\\\b\\\\d{1,2}[\\\\/-]\\\\d{1,2}(?:[\\\\/-]\\\\d{2,4})?\\\\b/.test(rawMessage)\n    || /\\\\b\\\\d{1,2}(?:st|nd|rd|th)\\\\b/i.test(rawMessage);\n  const vagueDate = /sometime|whenever|later|not sure|maybe|any day|one day/i.test(rawMessage);\n  if (!clearDate || vagueDate) {\n    return [{ json: { reply: 'Please give me a specific appointment date.', session_id: sessionId, stage: session.stage } }];\n  }\n  session.date = rawMessage.replace(/[.!?]+$/g, '').trim();\n  session.stage = 'awaiting_time';\n  return [{ json: { reply: 'Would you prefer Morning or Afternoon?', session_id: sessionId, stage: session.stage } }];\n}\n\nif (session.stage === 'awaiting_time') {\n  const wantsMorning = /\\\\bmorning\\\\b/i.test(rawMessage);\n  const wantsAfternoon = /\\\\bafternoon\\\\b/i.test(rawMessage);\n  if (!wantsMorning && !wantsAfternoon) {\n    return [{ json: { reply: 'Please choose Morning or Afternoon.', session_id: sessionId, stage: session.stage } }];\n  }\n  session.time_preference = wantsMorning ? 'Morning' : 'Afternoon';\n  session.confirmed = true;\n  session.stage = 'confirmed';\n  return [{\n    json: {\n      reply: `Your appointment is confirmed for ${session.name} on ${session.date} in the ${session.time_preference}.`,\n      session_id: sessionId,\n      stage: session.stage\n    }\n  }];\n}\n\nreturn [{\n  json: {\n    reply: `Your appointment is already confirmed for ${session.name} on ${session.date} in the ${session.time_preference}. Say \"book again\" to start a new booking or \"cancel\" to cancel.`,\n    session_id: sessionId,\n    stage: session.stage\n  }\n}];"
+      },
+      "id": "1389bdd8-4a3b-46c4-93ea-d00c5c318d21",
+      "name": "Appointment Logic",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -150,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{$json}}",
+        "options": {}
+      },
+      "id": "8fe0360b-de54-43ee-aee9-5cbbb3705afe",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        130,
+        0
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Appointment Logic",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Appointment Logic": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "bdd9aae4-8075-42aa-920e-440196489c91",
+  "meta": {
+    "templateCredsSetupCompleted": true
+  },
+  "tags": []
+}

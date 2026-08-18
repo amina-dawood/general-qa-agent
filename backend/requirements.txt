@@ -1,0 +1,10 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+openai>=2.0,<3
+deepeval>=4.0,<5
+orjson>=3.10,<4
+python-dotenv>=1.1,<2
+python-multipart>=0.0.20,<1
+httpx>=0.28,<1
+pypdf>=6,<7
+docx2txt>=0.9,<1
