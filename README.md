@@ -169,10 +169,6 @@ npm ci
 npm run build
 ```
 
-## Screenshots / demo video
-
-Add sanitized screenshots under `docs/screenshots/` and link your demo video here later. Do not capture real endpoints, phone numbers, emails, API keys, or client data.
-
 ## Repository note
 
 This repository is a sanitized portfolio copy. Production/client workspaces and proprietary configuration are deliberately kept outside Git.
